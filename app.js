@@ -10,7 +10,7 @@ const products = [
   { name: "ข้าวมันเปล่า", prices: [15, 20] },
   { name: "ไก่สับ", prices: [100] },
   { name: "หมูกรอบสับ", prices: [100] },
-  { name: "น้ำดื่ม", prices: [10] }
+  { name: "น้ำดื่ม", prices: [10] },
 ];
 
 const tables = [
@@ -18,15 +18,15 @@ const tables = [
     id: `T${index + 1}`,
     label: `T${index + 1}`,
     status: "available",
-    items: []
+    items: [],
   })),
   { id: "T7", label: "T7", status: "disabled", items: [] },
-  { id: "takeaway", label: "กลับบ้าน", status: "available", items: [] }
+  { id: "takeaway", label: "กลับบ้าน", status: "available", items: [] },
 ];
 
 const state = {
   selectedTableId: null,
-  modalAction: null
+  modalAction: null,
 };
 
 const menuGrid = document.querySelector("#menu-grid");
@@ -41,6 +41,7 @@ const addButton = document.querySelector("#add-button");
 const waterButton = document.querySelector("#water-button");
 const payButton = document.querySelector("#pay-button");
 const cancelButton = document.querySelector("#cancel-button");
+const confirmOrderButton = document.querySelector("#confirm-order-button");
 const modal = document.querySelector("#confirm-modal");
 const modalTitle = document.querySelector("#modal-title");
 const modalMessage = document.querySelector("#modal-message");
@@ -50,11 +51,15 @@ const modalConfirm = document.querySelector("#modal-confirm");
 let toastTimer;
 
 function renderMenu() {
-  menuGrid.innerHTML = products.map((product, productIndex) => `
+  menuGrid.innerHTML = products
+    .map(
+      (product, productIndex) => `
     <article class="menu-card">
       <div class="menu-name">${product.name}</div>
       <div class="price-row">
-        ${product.prices.map(price => `
+        ${product.prices
+          .map(
+            (price) => `
           <button
             class="price-button"
             type="button"
@@ -62,14 +67,20 @@ function renderMenu() {
             data-price="${price}"
             aria-label="เพิ่ม ${product.name} ราคา ${price} บาท"
           >${price}</button>
-        `).join("")}
+        `,
+          )
+          .join("")}
       </div>
     </article>
-  `).join("");
+  `,
+    )
+    .join("");
 }
 
 function renderTables() {
-  tableGrid.innerHTML = tables.map(table => `
+  tableGrid.innerHTML = tables
+    .map(
+      (table) => `
     <button
       class="table-button ${table.status} ${table.id === "takeaway" ? "takeaway" : ""} ${state.selectedTableId === table.id ? "selected" : ""}"
       type="button"
@@ -77,11 +88,13 @@ function renderTables() {
       ${table.status === "disabled" ? "disabled" : ""}
       aria-pressed="${state.selectedTableId === table.id}"
     >${table.label}</button>
-  `).join("");
+  `,
+    )
+    .join("");
 }
 
 function getSelectedTable() {
-  return tables.find(table => table.id === state.selectedTableId) || null;
+  return tables.find((table) => table.id === state.selectedTableId) || null;
 }
 
 function formatNumber(value) {
@@ -93,18 +106,23 @@ function renderBill() {
   const hasSelection = Boolean(table);
   const hasItems = hasSelection && table.items.length > 0;
 
-  billTitle.textContent = hasSelection ? `โต๊ะ ${table.label}` : "ยังไม่ได้เลือกโต๊ะ";
+  billTitle.textContent = hasSelection
+    ? `โต๊ะ ${table.label}`
+    : "ยังไม่ได้เลือกโต๊ะ";
   addButton.disabled = !hasSelection;
   waterButton.disabled = !hasSelection;
   payButton.disabled = !hasItems;
   cancelButton.disabled = !hasItems;
+  confirmOrderButton.disabled = !hasItems || table?.status === "available";
 
   if (!hasSelection) {
-    emptyState.querySelector("strong").textContent = "เลือกโต๊ะเพื่อเริ่มรับออเดอร์";
+    emptyState.querySelector("strong").textContent =
+      "เลือกโต๊ะเพื่อเริ่มรับออเดอร์";
     emptyState.querySelector("p").textContent = "จากนั้นแตะราคาที่เมนูด้านซ้าย";
   } else if (!hasItems) {
     emptyState.querySelector("strong").textContent = "ยังไม่มีรายการอาหาร";
-    emptyState.querySelector("p").textContent = "แตะราคาที่เมนูเพื่อเพิ่มเข้าบิล";
+    emptyState.querySelector("p").textContent =
+      "แตะราคาที่เมนูเพื่อเพิ่มเข้าบิล";
   }
 
   emptyState.hidden = hasItems;
@@ -117,7 +135,9 @@ function renderBill() {
     return;
   }
 
-  billList.innerHTML = table.items.map((item, index) => `
+  billList.innerHTML = table.items
+    .map(
+      (item, index) => `
     <div class="bill-item">
       <div class="item-info">
         <strong>${item.name}</strong>
@@ -130,10 +150,18 @@ function renderBill() {
       </div>
       <div class="line-total">${formatNumber(item.price * item.quantity)}</div>
     </div>
-  `).join("");
+  `,
+    )
+    .join("");
 
-  const totalQuantity = table.items.reduce((sum, item) => sum + item.quantity, 0);
-  const total = table.items.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const totalQuantity = table.items.reduce(
+    (sum, item) => sum + item.quantity,
+    0,
+  );
+  const total = table.items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
   itemCount.textContent = `${formatNumber(totalQuantity)} รายการ`;
   totalElement.textContent = formatNumber(total);
 }
@@ -149,8 +177,13 @@ function requireTable() {
   if (getSelectedTable()) return true;
   showToast("กรุณาเลือกโต๊ะก่อนเพิ่มรายการ");
   tableGrid.animate(
-    [{ transform: "translateX(0)" }, { transform: "translateX(-5px)" }, { transform: "translateX(5px)" }, { transform: "translateX(0)" }],
-    { duration: 220 }
+    [
+      { transform: "translateX(0)" },
+      { transform: "translateX(-5px)" },
+      { transform: "translateX(5px)" },
+      { transform: "translateX(0)" },
+    ],
+    { duration: 220 },
   );
   return false;
 }
@@ -159,7 +192,13 @@ function addItem(product, price) {
   if (!requireTable()) return;
 
   const table = getSelectedTable();
-  const existingItem = table.items.find(item => item.name === product.name && item.price === price);
+  let existingItem = null;
+
+  if (table.status === "ordering") {
+    existingItem = table.items.find(
+      (item) => item.name === product.name && item.price === price,
+    );
+  }
 
   if (existingItem) {
     existingItem.quantity += 1;
@@ -167,7 +206,7 @@ function addItem(product, price) {
     table.items.push({ name: product.name, price, quantity: 1 });
   }
 
-  if (table.status === "available") table.status = "waiting";
+  if (table.status === "available") table.status = "ordering";
   renderTables();
   renderBill();
   showToast(`เพิ่ม ${product.name} ${price} บาท`);
@@ -189,19 +228,31 @@ function openModal(type) {
   const table = getSelectedTable();
   if (!table || table.items.length === 0) return;
 
-  const total = table.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+  const total = table.items.reduce(
+    (sum, item) => sum + item.price * item.quantity,
+    0,
+  );
   state.modalAction = type;
 
-  if (type === "pay") {
+  if (type === "confirm") {
+    modalIcon.textContent = "✓";
+    modalTitle.textContent = "ยืนยันออเดอร์";
+    modalMessage.textContent = `ส่งรายการของ ${table.label} เข้าครัว ?`;
+
+    modalConfirm.textContent = "ยืนยัน";
+    modalConfirm.className = "action confirm";
+  } else if (type === "pay") {
     modalIcon.textContent = "฿";
     modalTitle.textContent = "ยืนยันคิดเงิน";
     modalMessage.textContent = `${table.label} ยอดชำระ ${formatNumber(total)} บาท`;
+
     modalConfirm.textContent = "รับเงินแล้ว";
     modalConfirm.className = "action pay";
   } else {
     modalIcon.textContent = "!";
     modalTitle.textContent = "ยกเลิกบิลนี้?";
     modalMessage.textContent = `รายการทั้งหมดของ ${table.label} จะถูกล้าง`;
+
     modalConfirm.textContent = "ยกเลิกบิล";
     modalConfirm.className = "action cancel";
   }
@@ -220,15 +271,32 @@ function completeModalAction() {
   if (!table) return closeModal();
 
   const action = state.modalAction;
+
+  if (action === "confirm") {
+    table.status = "waiting";
+
+    closeModal();
+
+    renderTables();
+    renderBill();
+
+    showToast(`ส่งออเดอร์ ${table.label} แล้ว`);
+
+    return;
+  }
   table.items = [];
   table.status = "available";
   closeModal();
   renderTables();
   renderBill();
-  showToast(action === "pay" ? `คิดเงิน ${table.label} เรียบร้อย` : `ยกเลิกบิล ${table.label} แล้ว`);
+  showToast(
+    action === "pay"
+      ? `คิดเงิน ${table.label} เรียบร้อย`
+      : `ยกเลิกบิล ${table.label} แล้ว`,
+  );
 }
 
-menuGrid.addEventListener("click", event => {
+menuGrid.addEventListener("click", (event) => {
   const button = event.target.closest(".price-button");
   if (!button) return;
 
@@ -239,7 +307,7 @@ menuGrid.addEventListener("click", event => {
   addItem(product, price);
 });
 
-tableGrid.addEventListener("click", event => {
+tableGrid.addEventListener("click", (event) => {
   const button = event.target.closest(".table-button");
   if (!button || button.disabled) return;
 
@@ -248,28 +316,37 @@ tableGrid.addEventListener("click", event => {
   renderBill();
 });
 
-billList.addEventListener("click", event => {
+billList.addEventListener("click", (event) => {
   const button = event.target.closest(".qty-button");
   if (!button) return;
-  updateQuantity(Number(button.dataset.index), button.dataset.action === "increase" ? 1 : -1);
+  updateQuantity(
+    Number(button.dataset.index),
+    button.dataset.action === "increase" ? 1 : -1,
+  );
 });
 
 addButton.addEventListener("click", () => {
   if (!requireTable()) return;
   menuGrid.scrollTo({ top: 0, behavior: "smooth" });
   menuGrid.animate(
-    [{ boxShadow: "inset 0 0 0 0 rgba(255,178,44,0)" }, { boxShadow: "inset 0 0 0 2px rgba(255,178,44,.7)" }, { boxShadow: "inset 0 0 0 0 rgba(255,178,44,0)" }],
-    { duration: 650 }
+    [
+      { boxShadow: "inset 0 0 0 0 rgba(255,178,44,0)" },
+      { boxShadow: "inset 0 0 0 2px rgba(255,178,44,.7)" },
+      { boxShadow: "inset 0 0 0 0 rgba(255,178,44,0)" },
+    ],
+    { duration: 650 },
   );
 });
 
 waterButton.addEventListener("click", () => addItem(products.at(-1), 10));
+confirmOrderButton.addEventListener("click", () => openModal("confirm"));
+
 payButton.addEventListener("click", () => openModal("pay"));
 cancelButton.addEventListener("click", () => openModal("cancel"));
 document.querySelector("#modal-close").addEventListener("click", closeModal);
 modalConfirm.addEventListener("click", completeModalAction);
 
-modal.addEventListener("click", event => {
+modal.addEventListener("click", (event) => {
   if (event.target === modal) closeModal();
 });
 
@@ -278,16 +355,19 @@ document.querySelector("#legend-button").addEventListener("click", () => {
   legend.hidden = !legend.hidden;
 });
 
-document.addEventListener("keydown", event => {
+document.addEventListener("keydown", (event) => {
   if (event.key === "Escape" && !modal.hidden) closeModal();
 });
 
 function updateClock() {
-  document.querySelector("#clock").textContent = new Intl.DateTimeFormat("th-TH", {
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false
-  }).format(new Date());
+  document.querySelector("#clock").textContent = new Intl.DateTimeFormat(
+    "th-TH",
+    {
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
+    },
+  ).format(new Date());
 }
 
 renderMenu();

@@ -222,6 +222,7 @@ h2 {
 }
 
 .table-button.available { --status-color: var(--green); }
+.table-button.ordering { --status-color: #3b82f6; }
 .table-button.waiting { --status-color: var(--yellow); }
 .table-button.eating { --status-color: var(--red); }
 .table-button.disabled {
@@ -264,6 +265,7 @@ h2 {
 }
 
 .dot.available { background: var(--green); }
+.dot.ordering { background: #3b82f6; }
 .dot.waiting { background: var(--yellow); }
 .dot.eating { background: var(--red); }
 .dot.disabled { background: var(--grey); }

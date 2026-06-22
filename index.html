@@ -37,10 +37,11 @@
         <div class="table-grid" id="table-grid"></div>
 
         <div class="status-legend" id="status-legend" hidden>
-          <span><i class="dot available"></i>ว่าง</span>
-          <span><i class="dot waiting"></i>รออาหาร</span>
-          <span><i class="dot eating"></i>กำลังกิน</span>
-          <span><i class="dot disabled"></i>ปิดใช้งาน</span>
+<span><i class="dot available"></i>ว่าง</span>
+<span><i class="dot ordering"></i>รับออเดอร์</span>
+<span><i class="dot waiting"></i>รออาหาร</span>
+<span><i class="dot eating"></i>กำลังกิน</span>
+<span><i class="dot disabled"></i>ปิดใช้งาน</span>
         </div>
       </section>
 
@@ -70,6 +71,11 @@
           <div class="action-grid">
             <button class="action secondary" id="add-button" type="button">＋ เพิ่มรายการ</button>
             <button class="action water" id="water-button" type="button">💧 น้ำ +1</button>
+            
+<button class="action confirm" id="confirm-order-button" type="button">
+  ✅ ยืนยันออเดอร์
+</button>
+
             <button class="action pay" id="pay-button" type="button">คิดเงิน</button>
             <button class="action cancel" id="cancel-button" type="button">ยกเลิกบิล</button>
           </div>
