@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+  <meta name="theme-color" content="#101316">
+  <title>ร้านอิ่มอร่อย POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Thai:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="pos-shell">
+    <section class="menu-panel" aria-labelledby="menu-title">
+      <header class="panel-header">
+        <div>
+          <p class="eyebrow">หน้าร้าน</p>
+          <h1 id="menu-title">เมนูอาหาร</h1>
+        </div>
+        <div class="clock" id="clock" aria-label="เวลาปัจจุบัน">--:--</div>
+      </header>
+
+      <div class="menu-grid" id="menu-grid" aria-live="polite"></div>
+    </section>
+
+    <aside class="order-panel">
+      <section class="table-section" aria-labelledby="table-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">เลือกก่อนรับออเดอร์</p>
+            <h2 id="table-title">สถานะโต๊ะ</h2>
+          </div>
+          <button class="icon-button" id="legend-button" aria-label="ดูคำอธิบายสถานะ" type="button">?</button>
+        </div>
+
+        <div class="table-grid" id="table-grid"></div>
+
+        <div class="status-legend" id="status-legend" hidden>
+          <span><i class="dot available"></i>ว่าง</span>
+          <span><i class="dot waiting"></i>รออาหาร</span>
+          <span><i class="dot eating"></i>กำลังกิน</span>
+          <span><i class="dot disabled"></i>ปิดใช้งาน</span>
+        </div>
+      </section>
+
+      <section class="bill-section" aria-labelledby="bill-title">
+        <div class="bill-heading">
+          <div>
+            <p class="eyebrow">รายการปัจจุบัน</p>
+            <h2 id="bill-title">ยังไม่ได้เลือกโต๊ะ</h2>
+          </div>
+          <span class="item-count" id="item-count">0 รายการ</span>
+        </div>
+
+        <div class="empty-state" id="empty-state">
+          <div class="empty-icon">⌁</div>
+          <strong>เลือกโต๊ะเพื่อเริ่มรับออเดอร์</strong>
+          <p>จากนั้นแตะราคาที่เมนูด้านซ้าย</p>
+        </div>
+
+        <div class="bill-list" id="bill-list" hidden></div>
+
+        <div class="bill-footer">
+          <div class="total-row">
+            <span>ยอดรวม</span>
+            <strong><span id="total">0</span> <small>บาท</small></strong>
+          </div>
+
+          <div class="action-grid">
+            <button class="action secondary" id="add-button" type="button">＋ เพิ่มรายการ</button>
+            <button class="action water" id="water-button" type="button">💧 น้ำ +1</button>
+            <button class="action pay" id="pay-button" type="button">คิดเงิน</button>
+            <button class="action cancel" id="cancel-button" type="button">ยกเลิกบิล</button>
+          </div>
+        </div>
+      </section>
+    </aside>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <div class="modal-backdrop" id="confirm-modal" hidden>
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="modal-icon" id="modal-icon">✓</div>
+      <h2 id="modal-title">คิดเงิน</h2>
+      <p id="modal-message"></p>
+      <div class="modal-actions">
+        <button class="action secondary" id="modal-close" type="button">กลับ</button>
+        <button class="action pay" id="modal-confirm" type="button">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
