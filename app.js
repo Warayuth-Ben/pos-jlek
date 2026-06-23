@@ -21,8 +21,10 @@ const tables = [
     items: [],
   })),
   { id: "T7", label: "T7", status: "disabled", items: [] },
-  { id: "takeaway", label: "กลับบ้าน", status: "available", items: [] },
 ];
+
+const takeawayBills = [];
+let takeawayCounter = 0;
 
 const state = {
   selectedTableId: null,
@@ -31,6 +33,9 @@ const state = {
 
 const menuGrid = document.querySelector("#menu-grid");
 const tableGrid = document.querySelector("#table-grid");
+const takeawayGrid = document.querySelector("#takeaway-grid");
+const takeawayCount = document.querySelector("#takeaway-count");
+const newTakeawayButton = document.querySelector("#new-takeaway-button");
 const billTitle = document.querySelector("#bill-title");
 const billList = document.querySelector("#bill-list");
 const emptyState = document.querySelector("#empty-state");
@@ -82,7 +87,7 @@ function renderTables() {
     .map(
       (table) => `
     <button
-      class="table-button ${table.status} ${table.id === "takeaway" ? "takeaway" : ""} ${state.selectedTableId === table.id ? "selected" : ""}"
+      class="table-button ${table.status} ${state.selectedTableId === table.id ? "selected" : ""}"
       type="button"
       data-table-id="${table.id}"
       ${table.status === "disabled" ? "disabled" : ""}
@@ -91,10 +96,25 @@ function renderTables() {
   `,
     )
     .join("");
+
+  renderTakeawayBills();
 }
 
 function getSelectedTable() {
-  return tables.find((table) => table.id === state.selectedTableId) || null;
+  return (
+    tables.find((table) => table.id === state.selectedTableId) ||
+    takeawayBills.find((b) => b.id === state.selectedTableId) ||
+    null
+  );
+}
+
+function isTakeaway(id) {
+  return id && id.startsWith("TA-");
+}
+
+function getTableDisplayName(table) {
+  if (!table) return "";
+  return isTakeaway(table.id) ? `กลับบ้าน ${table.label}` : `โต๊ะ ${table.label}`;
 }
 
 function formatNumber(value) {
@@ -107,7 +127,7 @@ function renderBill() {
   const hasItems = hasSelection && table.items.length > 0;
 
   billTitle.textContent = hasSelection
-    ? `โต๊ะ ${table.label}`
+    ? getTableDisplayName(table)
     : "ยังไม่ได้เลือกโต๊ะ";
   addButton.disabled = !hasSelection;
   waterButton.disabled = !hasSelection;
@@ -175,6 +195,12 @@ function showToast(message) {
 
 function requireTable() {
   if (getSelectedTable()) return true;
+  if (takeawayBills.length > 0) {
+    state.selectedTableId = takeawayBills[0].id;
+    renderTables();
+    renderBill();
+    return true;
+  }
   showToast("กรุณาเลือกโต๊ะก่อนเพิ่มรายการ");
   tableGrid.animate(
     [
@@ -218,7 +244,14 @@ function updateQuantity(index, change) {
 
   table.items[index].quantity += change;
   if (table.items[index].quantity <= 0) table.items.splice(index, 1);
-  if (table.items.length === 0) table.status = "available";
+
+  if (table.items.length === 0) {
+    if (isTakeaway(table.id)) {
+      deleteTakeawayBill(table);
+    } else {
+      table.status = "available";
+    }
+  }
 
   renderTables();
   renderBill();
@@ -233,25 +266,26 @@ function openModal(type) {
     0,
   );
   state.modalAction = type;
+  const displayName = getTableDisplayName(table);
 
   if (type === "confirm") {
     modalIcon.textContent = "✓";
     modalTitle.textContent = "ยืนยันออเดอร์";
-    modalMessage.textContent = `ส่งรายการของ ${table.label} เข้าครัว ?`;
+    modalMessage.textContent = `ส่งรายการของ ${displayName} เข้าครัว ?`;
 
     modalConfirm.textContent = "ยืนยัน";
     modalConfirm.className = "action confirm";
   } else if (type === "pay") {
     modalIcon.textContent = "฿";
     modalTitle.textContent = "ยืนยันคิดเงิน";
-    modalMessage.textContent = `${table.label} ยอดชำระ ${formatNumber(total)} บาท`;
+    modalMessage.textContent = `${displayName} ยอดชำระ ${formatNumber(total)} บาท`;
 
     modalConfirm.textContent = "รับเงินแล้ว";
     modalConfirm.className = "action pay";
   } else {
     modalIcon.textContent = "!";
     modalTitle.textContent = "ยกเลิกบิลนี้?";
-    modalMessage.textContent = `รายการทั้งหมดของ ${table.label} จะถูกล้าง`;
+    modalMessage.textContent = `รายการทั้งหมดของ ${displayName} จะถูกล้าง`;
 
     modalConfirm.textContent = "ยกเลิกบิล";
     modalConfirm.className = "action cancel";
@@ -271,29 +305,88 @@ function completeModalAction() {
   if (!table) return closeModal();
 
   const action = state.modalAction;
+  const displayName = getTableDisplayName(table);
 
   if (action === "confirm") {
     table.status = "waiting";
-
     closeModal();
-
     renderTables();
     renderBill();
-
-    showToast(`ส่งออเดอร์ ${table.label} แล้ว`);
-
+    showToast(`ส่งออเดอร์ ${displayName} แล้ว`);
     return;
   }
-  table.items = [];
-  table.status = "available";
+
+  // pay or cancel
   closeModal();
+
+  if (isTakeaway(table.id)) {
+    deleteTakeawayBill(table);
+    showToast(
+      action === "pay"
+        ? `คิดเงิน ${displayName} เรียบร้อย`
+        : `ยกเลิกบิล ${displayName} แล้ว`,
+    );
+  } else {
+    table.items = [];
+    table.status = "available";
+    renderTables();
+    renderBill();
+    showToast(
+      action === "pay"
+        ? `คิดเงิน ${displayName} เรียบร้อย`
+        : `ยกเลิกบิล ${displayName} แล้ว`,
+    );
+  }
+}
+
+function createNewTakeawayBill() {
+  takeawayCounter++;
+  const id = `TA-${takeawayCounter}`;
+  const label = `#${String(takeawayCounter).padStart(3, "0")}`;
+  takeawayBills.push({ id, label, status: "ordering", items: [] });
+  state.selectedTableId = id;
   renderTables();
   renderBill();
-  showToast(
-    action === "pay"
-      ? `คิดเงิน ${table.label} เรียบร้อย`
-      : `ยกเลิกบิล ${table.label} แล้ว`,
-  );
+  showToast(`เปิดบิลกลับบ้าน ${label} แล้ว`);
+}
+
+function renderTakeawayBills() {
+  takeawayCount.textContent = takeawayBills.length;
+
+  if (takeawayBills.length === 0) {
+    takeawayGrid.innerHTML = "";
+    return;
+  }
+
+  takeawayGrid.innerHTML = takeawayBills
+    .map(
+      (bill) => `
+    <button
+      class="takeaway-bill-button ${state.selectedTableId === bill.id ? "selected" : ""}"
+      type="button"
+      data-takeaway-id="${bill.id}"
+      aria-pressed="${state.selectedTableId === bill.id}"
+    >${bill.label}</button>
+  `,
+    )
+    .join("");
+}
+
+function deleteTakeawayBill(table) {
+  const idx = takeawayBills.indexOf(table);
+  if (idx === -1) return;
+
+  takeawayBills.splice(idx, 1);
+
+  if (takeawayBills.length > 0) {
+    const nextIdx = Math.min(idx, takeawayBills.length - 1);
+    state.selectedTableId = takeawayBills[nextIdx].id;
+  } else {
+    state.selectedTableId = null;
+  }
+
+  renderTables();
+  renderBill();
 }
 
 menuGrid.addEventListener("click", (event) => {
@@ -315,6 +408,17 @@ tableGrid.addEventListener("click", (event) => {
   renderTables();
   renderBill();
 });
+
+takeawayGrid.addEventListener("click", (event) => {
+  const button = event.target.closest(".takeaway-bill-button");
+  if (!button) return;
+
+  state.selectedTableId = button.dataset.takeawayId;
+  renderTables();
+  renderBill();
+});
+
+newTakeawayButton.addEventListener("click", createNewTakeawayBill);
 
 billList.addEventListener("click", (event) => {
   const button = event.target.closest(".qty-button");
