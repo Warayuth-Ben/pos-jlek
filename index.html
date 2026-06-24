@@ -52,8 +52,19 @@
 <span><i class="dot ordering"></i>รับออเดอร์</span>
 <span><i class="dot waiting"></i>รออาหาร</span>
 <span><i class="dot eating"></i>กำลังกิน</span>
+<span><i class="dot payment"></i>รอชำระเงิน</span>
 <span><i class="dot disabled"></i>ปิดใช้งาน</span>
         </div>
+      </section>
+
+      <section class="queue-section" aria-labelledby="queue-title">
+        <div class="queue-heading">
+          <div>
+            <p class="eyebrow">📋 บิลที่กำลังดำเนินการ</p>
+            <h2 id="queue-title">คิว orders</h2>
+          </div>
+        </div>
+        <div class="queue-list" id="queue-list"></div>
       </section>
 
       <section class="bill-section" aria-labelledby="bill-title">
@@ -95,6 +106,8 @@
   ✅ ยืนยันการแก้ไข
 </button>
 
+            <button class="action eating" id="eating-button" type="button" hidden>🍽️ กำลังกิน</button>
+            <button class="action payment" id="payment-button" type="button" hidden>💳 รอชำระเงิน</button>
             <button class="action pay" id="pay-button" type="button">คิดเงิน</button>
             <button class="action cancel" id="cancel-button" type="button">ยกเลิกบิล</button>
           </div>
@@ -113,6 +126,25 @@
       <div class="modal-actions">
         <button class="action secondary" id="modal-close" type="button">กลับ</button>
         <button class="action pay" id="modal-confirm" type="button">ยืนยัน</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal-backdrop" id="note-modal" hidden>
+    <div class="modal note-modal" role="dialog" aria-modal="true" aria-labelledby="note-modal-title">
+      <h2 id="note-modal-title">แก้ไขหมายเหตุ</h2>
+      <div class="note-item-name" id="note-item-name"></div>
+      <div class="quick-options" id="quick-options">
+        <button class="quick-option" type="button" data-note="ไม่เอาหนัง">ไม่เอาหนัง</button>
+        <button class="quick-option" type="button" data-note="เอาหนัง">เอาหนัง</button>
+        <button class="quick-option" type="button" data-note="ไม่เอาแตง">ไม่เอาแตง</button>
+        <button class="quick-option" type="button" data-note="ไม่ราดน้ำ">ไม่ราดน้ำ</button>
+        <button class="quick-option" type="button" data-note="ไม่เอาเครื่องใน">ไม่เอาเครื่องใน</button>
+      </div>
+      <textarea id="note-text" rows="3" placeholder="หมายเหตุเพิ่มเติม..."></textarea>
+      <div class="modal-actions">
+        <button class="action secondary" id="note-cancel" type="button">ยกเลิก</button>
+        <button class="action confirm" id="note-save" type="button">บันทึก</button>
       </div>
     </div>
   </div>
