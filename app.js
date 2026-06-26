@@ -30,6 +30,7 @@ let takeawayCounter = 0;
 const state = {
   selectedTableId: null,
   modalAction: null,
+  viewingHistoryBillId: null,
 };
 
 const STORAGE_KEY = "pos-jlek-state";
@@ -49,6 +50,7 @@ function createOrder(bill) {
     items: [],
   };
   bill.orders.push(order);
+
   return order;
 }
 
@@ -76,11 +78,20 @@ function getOrCreateActiveOrder(bill) {
     const editing = getEditingOrder(bill);
     if (editing) return editing;
   }
-  let active = getActiveOrder(bill);
-  if (!active) {
-    active = createOrder(bill);
+
+  // Only allow one pending order at a time
+  const active = getActiveOrder(bill);
+  if (active) return active;
+
+  // Create new order only if no pending or editing orders exist
+  const hasPendingOrEditing = bill.orders.some(
+    (o) => o.status === "pending" || o.status === "editing",
+  );
+  if (!hasPendingOrEditing) {
+    return createOrder(bill);
   }
-  return active;
+
+  return null;
 }
 
 /**
@@ -128,7 +139,12 @@ function saveState() {
           createdAt: o.createdAt,
           confirmedAt: o.confirmedAt,
           updatedAt: o.updatedAt,
-          items: o.items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity, note: i.note || "" })),
+          items: o.items.map((i) => ({
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            note: i.note || "",
+          })),
         })),
         nextOrderId: t.nextOrderId,
       })),
@@ -142,7 +158,11 @@ function saveState() {
           createdAt: o.createdAt,
           confirmedAt: o.confirmedAt,
           updatedAt: o.updatedAt,
-          items: o.items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity })),
+          items: o.items.map((i) => ({
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+          })),
         })),
         nextOrderId: b.nextOrderId,
         createdAt: b.createdAt,
@@ -174,20 +194,43 @@ function loadState() {
         const table = tables.find((t) => t.id === saved.id);
         if (!table) return;
 
-        table.status = saved.status || "available";
+        // If table was editing, reset to waiting and keep confirmed orders
+        if (saved.status === "editing") {
+          table.status = "waiting";
+          // Ensure at least one confirmed order exists
+          const hasConfirmed = saved.orders?.some(
+            (o) => o.status === "confirmed",
+          );
+          if (!hasConfirmed && saved.orders?.length > 0) {
+            saved.orders[0].status = "confirmed";
+          }
+        } else {
+          table.status = saved.status || "available";
+        }
 
         if (isLegacy && Array.isArray(saved.items)) {
           // Legacy format: flat items[] → migrate to orders[0]
-          table.orders = [{
-            id: 1,
-            status: (saved.status === "waiting" || saved.status === "editing")
-              ? "confirmed" : "pending",
-            createdAt: Date.now(),
-            confirmedAt: (saved.status === "waiting" || saved.status === "editing")
-              ? Date.now() : null,
-            updatedAt: Date.now(),
-          items: saved.items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity, note: i.note || "" })),
-          }];
+          table.orders = [
+            {
+              id: 1,
+              status:
+                saved.status === "waiting" || saved.status === "editing"
+                  ? "confirmed"
+                  : "pending",
+              createdAt: Date.now(),
+              confirmedAt:
+                saved.status === "waiting" || saved.status === "editing"
+                  ? Date.now()
+                  : null,
+              updatedAt: Date.now(),
+              items: saved.items.map((i) => ({
+                name: i.name,
+                price: i.price,
+                quantity: i.quantity,
+                note: i.note || "",
+              })),
+            },
+          ];
           table.nextOrderId = 2;
         } else if (Array.isArray(saved.orders)) {
           // New format: restore orders
@@ -197,9 +240,17 @@ function loadState() {
             createdAt: o.createdAt,
             confirmedAt: o.confirmedAt,
             updatedAt: o.updatedAt,
-            items: Array.isArray(o.items) ? o.items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity, note: i.note || "" })) : [],
+            items: Array.isArray(o.items)
+              ? o.items.map((i) => ({
+                  name: i.name,
+                  price: i.price,
+                  quantity: i.quantity,
+                  note: i.note || "",
+                }))
+              : [],
           }));
-          table.nextOrderId = typeof saved.nextOrderId === "number" ? saved.nextOrderId : 1;
+          table.nextOrderId =
+            typeof saved.nextOrderId === "number" ? saved.nextOrderId : 1;
         }
       });
     }
@@ -220,14 +271,21 @@ function loadState() {
 
         if (isLegacy && Array.isArray(saved.items)) {
           // Legacy format: flat items[] → migrate to orders[0]
-          bill.orders = [{
-            id: 1,
-            status: "pending",
-            createdAt: Date.now(),
-            confirmedAt: null,
-            updatedAt: Date.now(),
-            items: saved.items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity, note: i.note || "" })),
-          }];
+          bill.orders = [
+            {
+              id: 1,
+              status: "pending",
+              createdAt: Date.now(),
+              confirmedAt: null,
+              updatedAt: Date.now(),
+              items: saved.items.map((i) => ({
+                name: i.name,
+                price: i.price,
+                quantity: i.quantity,
+                note: i.note || "",
+              })),
+            },
+          ];
           bill.nextOrderId = 2;
         } else if (Array.isArray(saved.orders)) {
           bill.orders = saved.orders.map((o) => ({
@@ -236,9 +294,17 @@ function loadState() {
             createdAt: o.createdAt,
             confirmedAt: o.confirmedAt,
             updatedAt: o.updatedAt,
-            items: Array.isArray(o.items) ? o.items.map((i) => ({ name: i.name, price: i.price, quantity: i.quantity, note: i.note || "" })) : [],
+            items: Array.isArray(o.items)
+              ? o.items.map((i) => ({
+                  name: i.name,
+                  price: i.price,
+                  quantity: i.quantity,
+                  note: i.note || "",
+                }))
+              : [],
           }));
-          bill.nextOrderId = typeof saved.nextOrderId === "number" ? saved.nextOrderId : 1;
+          bill.nextOrderId =
+            typeof saved.nextOrderId === "number" ? saved.nextOrderId : 1;
         }
 
         takeawayBills.push(bill);
@@ -279,6 +345,8 @@ const billTitle = document.querySelector("#bill-title");
 const billList = document.querySelector("#bill-list");
 const emptyState = document.querySelector("#empty-state");
 const totalElement = document.querySelector("#total");
+const historyButton = document.querySelector("#history-button");
+
 const itemCount = document.querySelector("#item-count");
 const toast = document.querySelector("#toast");
 const addButton = document.querySelector("#add-button");
@@ -295,6 +363,10 @@ const modalTitle = document.querySelector("#modal-title");
 const modalMessage = document.querySelector("#modal-message");
 const modalIcon = document.querySelector("#modal-icon");
 const modalConfirm = document.querySelector("#modal-confirm");
+
+const historyModal = document.querySelector("#history-modal");
+const historyContent = document.querySelector("#history-content");
+const closeHistoryButton = document.querySelector("#close-history");
 
 let toastTimer;
 
@@ -336,7 +408,9 @@ function renderMenu() {
 
 function getTableEarliestOrderTime(table) {
   if (!table.orders || table.orders.length === 0) return null;
-  const pending = table.orders.filter((o) => o.status === "pending" || o.status === "editing");
+  const pending = table.orders.filter(
+    (o) => o.status === "pending" || o.status === "editing",
+  );
   if (pending.length === 0) return null;
   const times = pending.map((o) => o.createdAt).filter(Boolean);
   if (times.length === 0) return null;
@@ -345,11 +419,15 @@ function getTableEarliestOrderTime(table) {
 
 function renderTables() {
   tableGrid.innerHTML = tables
-    .map(
-      (table) => {
-        const showAge = ["ordering", "waiting", "eating", "payment"].includes(table.status);
-        const elapsedStr = showAge && getTableEarliestOrderTime(table) ? formatElapsed(getTableEarliestOrderTime(table)) : "";
-        return `
+    .map((table) => {
+      const showAge = ["ordering", "waiting", "eating", "payment"].includes(
+        table.status,
+      );
+      const elapsedStr =
+        showAge && getTableEarliestOrderTime(table)
+          ? formatElapsed(getTableEarliestOrderTime(table))
+          : "";
+      return `
       <button
         class="table-button ${table.status} ${state.selectedTableId === table.id ? "selected" : ""}"
         type="button"
@@ -361,8 +439,7 @@ function renderTables() {
         ${elapsedStr ? `<span class="table-elapsed">⏱ ${elapsedStr}</span>` : ""}
       </button>
     `;
-      },
-    )
+    })
     .join("");
 
   renderTakeawayBills();
@@ -372,13 +449,26 @@ function renderTables() {
 function getActiveBills() {
   const allBills = [
     ...tables
-      .filter((t) => t.status !== "available" && t.status !== "disabled" && hasBillItems(t))
+      .filter(
+        (t) =>
+          t.status !== "available" &&
+          t.status !== "disabled" &&
+          hasBillItems(t),
+      )
       .map((t) => ({ ...t, type: "table" })),
-    ...takeawayBills.filter((b) => hasBillItems(b)).map((b) => ({ ...b, type: "takeaway" })),
+    ...takeawayBills
+      .filter((b) => hasBillItems(b))
+      .map((b) => ({ ...b, type: "takeaway" })),
   ];
   allBills.sort((a, b) => {
-    const aTime = a.type === "table" ? getTableEarliestOrderTime(a) : getBillEarliestOrderTime(a);
-    const bTime = b.type === "table" ? getTableEarliestOrderTime(b) : getBillEarliestOrderTime(b);
+    const aTime =
+      a.type === "table"
+        ? getTableEarliestOrderTime(a)
+        : getBillEarliestOrderTime(a);
+    const bTime =
+      b.type === "table"
+        ? getTableEarliestOrderTime(b)
+        : getBillEarliestOrderTime(b);
     const aVal = aTime || 0;
     const bVal = bTime || 0;
     return aVal - bVal;
@@ -389,7 +479,8 @@ function getActiveBills() {
 function renderQueue() {
   const activeBills = getActiveBills();
   if (activeBills.length === 0) {
-    queueList.innerHTML = '<div class="queue-empty">ยังไม่มีบิลที่กำลังดำเนินการ</div>';
+    queueList.innerHTML =
+      '<div class="queue-empty">ยังไม่มีบิลที่กำลังดำเนินการ</div>';
     return;
   }
   queueList.innerHTML = activeBills
@@ -397,8 +488,13 @@ function renderQueue() {
       const isTable = bill.type === "table";
       const billItems = getBillItems(bill);
       const itemCount = billItems.reduce((sum, item) => sum + item.quantity, 0);
-      const total = billItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
-      const elapsed = isTable ? getTableEarliestOrderTime(bill) : getBillEarliestOrderTime(bill);
+      const total = billItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      const elapsed = isTable
+        ? getTableEarliestOrderTime(bill)
+        : getBillEarliestOrderTime(bill);
       const elapsedStr = elapsed ? formatElapsed(elapsed) : "";
       const timeStr = bill.createdAt ? formatTime(bill.createdAt) : "";
       const statusText = isTable ? tableStatusText(bill.status) : "รับออเดอร์";
@@ -423,6 +519,7 @@ function renderQueue() {
           <div class="queue-card-meta-row">📦 ${itemCount} รายการ • 💰 ${formatNumber(total)} บาท</div>
           ${elapsedStr ? `<div class="queue-card-meta-row">⏱ ${elapsedStr}</div>` : ""}
         </div>
+        <button class="history-button" type="button" data-bill-id="${bill.id}" data-bill-type="${bill.type}">📋 ประวัติ</button>
       </button>
     `;
     })
@@ -453,7 +550,9 @@ function isTakeaway(id) {
 
 function getTableDisplayName(table) {
   if (!table) return "";
-  return isTakeaway(table.id) ? `กลับบ้าน ${table.label}` : `โต๊ะ ${table.label}`;
+  return isTakeaway(table.id)
+    ? `กลับบ้าน ${table.label}`
+    : `โต๊ะ ${table.label}`;
 }
 
 function formatNumber(value) {
@@ -465,7 +564,6 @@ function escapeHtml(text) {
   div.textContent = text;
   return div.innerHTML;
 }
-
 
 function renderBill() {
   const table = getSelectedTable();
@@ -479,8 +577,8 @@ function renderBill() {
   addButton.disabled = !hasSelection;
   waterButton.disabled = !hasSelection;
 
-  payButton.disabled = !hasItems;
-  cancelButton.disabled = !hasItems;
+  payButton.disabled = !hasItems || table?.status === "editing";
+  cancelButton.disabled = !hasItems || table?.status === "editing";
   confirmOrderButton.disabled = !hasItems || table?.status !== "ordering";
   confirmOrderButton.hidden = !hasItems || table?.status !== "ordering";
 
@@ -491,10 +589,13 @@ function renderBill() {
   paymentButton.hidden = table?.status !== "eating";
 
   // Edit functionality moved to per-order buttons inside bill sections
-  editOrderButton.hidden = true;
+  // editOrderButton.hidden = true;  // removed: element no longer exists in redesigned HTML
 
   // Confirm edit button: visible only when editing
   confirmEditButton.hidden = !hasItems || table?.status !== "editing";
+
+  // Disable history when nothing selected
+  historyButton.disabled = !hasSelection;
 
   if (!hasSelection) {
     emptyState.querySelector("strong").textContent =
@@ -519,9 +620,18 @@ function renderBill() {
   // Render ALL orders sequentially
   billList.innerHTML = table.orders
     .map((order, orderIndex) => {
-      const isEditable = order.status === "pending" || order.status === "editing";
-      const statusLabel = order.status === "confirmed" ? "🔒 ยืนยันแล้ว" : order.status === "editing" ? "กำลังแก้ไข" : "รอยืนยัน";
-      const orderTotal = order.items.reduce((sum, item) => sum + item.price * item.quantity, 0);
+      const isEditable =
+        order.status === "pending" || order.status === "editing";
+      const statusLabel =
+        order.status === "confirmed"
+          ? "🔒 ยืนยันแล้ว"
+          : order.status === "editing"
+            ? "กำลังแก้ไข"
+            : "รอยืนยัน";
+      const orderTotal = order.items.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
 
       const itemsHtml = order.items
         .map(
@@ -546,13 +656,18 @@ function renderBill() {
         )
         .join("");
 
-      const subtotalHtml = order.items.length > 0
-        ? `<div class="order-subtotal">รวมย่อย <strong>${formatNumber(orderTotal)}</strong> บาท</div>`
-        : "";
+      const subtotalHtml =
+        order.items.length > 0
+          ? `<div class="order-subtotal">รวมย่อย <strong>${formatNumber(orderTotal)}</strong> บาท</div>`
+          : "";
 
-      const showEditBtn = table.status !== "editing" && order.status === "confirmed";
+      const showEditBtn =
+        table.status !== "editing" && order.status === "confirmed";
       const showResetBtn = order.status === "editing" && order._snapshot;
-      const itemCount = order.items.reduce((sum, item) => sum + item.quantity, 0);
+      const itemCount = order.items.reduce(
+        (sum, item) => sum + item.quantity,
+        0,
+      );
       const orderTime = formatTime(order.createdAt);
 
       return `
@@ -560,7 +675,7 @@ function renderBill() {
         <div class="order-header">
           <div class="order-header-left">
             <h3>ออเดอร์ #${String(order.id).padStart(2, "0")}</h3>
-            ${order.status === "confirmed" ? "<span class=\"order-lock-icon\">🔒</span>" : ""}
+            ${order.status === "confirmed" ? '<span class="order-lock-icon">🔒</span>' : ""}
             ${order._isNew ? '<span class="order-new-badge">🆕</span>' : ""}
           </div>
           <div class="order-header-right">
@@ -579,10 +694,7 @@ function renderBill() {
 
   // Grand total across all orders
   const billItems = getBillItems(table);
-  const totalQuantity = billItems.reduce(
-    (sum, item) => sum + item.quantity,
-    0,
-  );
+  const totalQuantity = billItems.reduce((sum, item) => sum + item.quantity, 0);
   const total = billItems.reduce(
     (sum, item) => sum + item.price * item.quantity,
     0,
@@ -619,6 +731,9 @@ function requireTable() {
   return false;
 }
 
+// Snapshot for edit logging
+let editSnapshot = null; // { orderId, items }
+
 function addItem(product, price) {
   if (!requireTable()) return;
 
@@ -640,9 +755,17 @@ function addItem(product, price) {
     // Use existing pending order if available, otherwise create new
     order = getActiveOrder(table);
     if (!order) {
-      order = createOrder(table);
-      // Mark this as a new order for display purposes
-      order._isNew = true;
+      // Only create new order if table is not editing and no pending/editing orders exist
+      if (table.status !== "editing") {
+        const hasPendingOrEditing = table.orders.some(
+          (o) => o.status === "pending" || o.status === "editing",
+        );
+        if (!hasPendingOrEditing) {
+          order = createOrder(table);
+          // Mark this as a new order for display purposes
+          order._isNew = true;
+        }
+      }
     }
   }
 
@@ -655,10 +778,37 @@ function addItem(product, price) {
     );
   }
 
+  const wasEmpty = order.items.length === 0;
+
   if (existingItem) {
     existingItem.quantity += 1;
   } else {
     order.items.push({ name: product.name, price, quantity: 1, note: "" });
+  }
+
+  // Log create/addon order with actual items after first item is added
+  if (wasEmpty) {
+    const isAddon =
+      order.items.length > 1 ||
+      (table.orders.length > 1 &&
+        table.orders[table.orders.length - 1] === order);
+    saveLogEntry(
+      createLogEntry(
+        isAddon ? "addon_order" : "create_order",
+        table.id,
+        order.id,
+        null,
+        {
+          status: order.status,
+          items: order.items.map((i) => ({
+            name: i.name,
+            price: i.price,
+            quantity: i.quantity,
+            note: i.note || "",
+          })),
+        },
+      ),
+    );
   }
 
   // Update table status to reflect pending orders
@@ -751,12 +901,50 @@ function completeModalAction() {
   const displayName = getTableDisplayName(table);
 
   if (action === "confirm") {
+    // Cannot confirm while editing
+    if (table.status === "editing") {
+      showToast("ไม่สามารถยืนยันได้ขณะกำลังแก้ไข");
+      closeModal();
+      return;
+    }
+
     // Confirm the active (pending) order
     const activeOrder = getActiveOrder(table);
     if (activeOrder) {
+      // Log: Confirm Order
+      const beforeState = {
+        status: activeOrder.status,
+        items: activeOrder.items.map((i) => ({
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          note: i.note || "",
+        })),
+      };
+
       activeOrder.status = "confirmed";
       activeOrder.confirmedAt = Date.now();
       activeOrder.updatedAt = Date.now();
+
+      const afterState = {
+        status: activeOrder.status,
+        items: activeOrder.items.map((i) => ({
+          name: i.name,
+          price: i.price,
+          quantity: i.quantity,
+          note: i.note || "",
+        })),
+      };
+
+      saveLogEntry(
+        createLogEntry(
+          "confirm_order",
+          table.id,
+          activeOrder.id,
+          beforeState,
+          afterState,
+        ),
+      );
     }
     table.status = "waiting";
     closeModal();
@@ -767,9 +955,33 @@ function completeModalAction() {
   }
 
   // pay or cancel
+  // Prevent pay/cancel while editing
+  if (table.status === "editing") {
+    showToast("ไม่สามารถทำรายการนี้ได้ขณะกำลังแก้ไข");
+    closeModal();
+    return;
+  }
+
   closeModal();
 
+  // Log: Pay Bill or Cancel Bill
+  const actionType = action === "pay" ? "pay_bill" : "cancel_bill";
+
+  // Capture all order items before clearing
+  const allItems = table.orders.flatMap((o) =>
+    o.items.map((i) => ({
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+      note: i.note || "",
+    })),
+  );
+
   if (isTakeaway(table.id)) {
+    saveLogEntry(
+      createLogEntry(actionType, table.id, null, { items: allItems }, null),
+    );
+
     deleteTakeawayBill(table);
     renderQueue();
     showToast(
@@ -778,6 +990,10 @@ function completeModalAction() {
         : `ยกเลิกบิล ${displayName} แล้ว`,
     );
   } else {
+    saveLogEntry(
+      createLogEntry(actionType, table.id, null, { items: allItems }, null),
+    );
+
     table.orders = [];
     table.nextOrderId = 1;
     table.status = "available";
@@ -827,7 +1043,11 @@ function createNewTakeawayBill() {
 function formatTime(ts) {
   if (!ts) return "";
   const d = new Date(ts);
-  return String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0");
+  return (
+    String(d.getHours()).padStart(2, "0") +
+    ":" +
+    String(d.getMinutes()).padStart(2, "0")
+  );
 }
 
 function formatElapsed(ts) {
@@ -839,7 +1059,9 @@ function formatElapsed(ts) {
   const hours = Math.floor(minutes / 60);
   const remaining = minutes % 60;
   if (hours < 24) {
-    return remaining > 0 ? `เปิด ${hours} ชม. ${remaining} นาทีที่แล้ว` : `เปิด ${hours} ชม.ที่แล้ว`;
+    return remaining > 0
+      ? `เปิด ${hours} ชม. ${remaining} นาทีที่แล้ว`
+      : `เปิด ${hours} ชม.ที่แล้ว`;
   }
   const days = Math.floor(hours / 24);
   return `เปิด ${days} วันที่แล้ว`;
@@ -847,7 +1069,9 @@ function formatElapsed(ts) {
 
 function getBillEarliestOrderTime(bill) {
   if (!bill.orders || bill.orders.length === 0) return null;
-  const pending = bill.orders.filter((o) => o.status === "pending" || o.status === "editing");
+  const pending = bill.orders.filter(
+    (o) => o.status === "pending" || o.status === "editing",
+  );
   if (pending.length === 0) return null;
   const times = pending.map((o) => o.createdAt).filter(Boolean);
   if (times.length === 0) return null;
@@ -863,30 +1087,33 @@ function renderTakeawayBills() {
   }
 
   takeawayGrid.innerHTML = takeawayBills
-    .map(
-      (bill) => {
-        const billItems = getBillItems(bill);
-        const itemCount = billItems.reduce((sum, item) => sum + item.quantity, 0);
-        const total = billItems.reduce(
-          (sum, item) => sum + item.price * item.quantity,
-          0,
-        );
-        const summary =
-          itemCount > 0
-            ? `${formatNumber(itemCount)} รายการ • ${formatNumber(total)}฿`
-            : "0 รายการ";
-        const timeStr = bill.createdAt ? formatTime(bill.createdAt) : "";
-        const elapsedStr = getBillEarliestOrderTime(bill) ? formatElapsed(getBillEarliestOrderTime(bill)) : "";
+    .map((bill) => {
+      const billItems = getBillItems(bill);
+      const itemCount = billItems.reduce((sum, item) => sum + item.quantity, 0);
+      const total = billItems.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0,
+      );
+      const summary =
+        itemCount > 0
+          ? `${formatNumber(itemCount)} รายการ • ${formatNumber(total)}฿`
+          : "0 รายการ";
+      const timeStr = bill.createdAt ? formatTime(bill.createdAt) : "";
+      const elapsedStr = getBillEarliestOrderTime(bill)
+        ? formatElapsed(getBillEarliestOrderTime(bill))
+        : "";
 
-        const isPulsing = bill.id === newBillId;
-        const showNewBadge = !bill.viewed && bill.id !== newBillId;
-        const classes = [
-          "takeaway-bill-button",
-          state.selectedTableId === bill.id ? "selected" : "",
-          isPulsing ? "pulse" : "",
-        ].filter(Boolean).join(" ");
+      const isPulsing = bill.id === newBillId;
+      const showNewBadge = !bill.viewed && bill.id !== newBillId;
+      const classes = [
+        "takeaway-bill-button",
+        state.selectedTableId === bill.id ? "selected" : "",
+        isPulsing ? "pulse" : "",
+      ]
+        .filter(Boolean)
+        .join(" ");
 
-        return `
+      return `
     <button
       class="${classes}"
       type="button"
@@ -900,8 +1127,7 @@ function renderTakeawayBills() {
       ${showNewBadge ? '<span class="takeaway-new-badge">NEW</span>' : ""}
     </button>
   `;
-      },
-    )
+    })
     .join("");
 }
 
@@ -920,6 +1146,34 @@ function deleteTakeawayBill(table) {
 
   renderTables();
   renderBill();
+}
+
+function openHistoryModal(billId) {
+  state.viewingHistoryBillId = billId;
+  renderHistoryContent(billId, "all");
+  historyModal.hidden = false;
+}
+
+function renderHistoryContent(billId, filter) {
+  let logs = getLogsForBill(billId);
+
+  // Apply filter
+  if (filter !== "all") {
+    const orderId = Number(filter);
+    logs = logs.filter((log) => log.orderId === orderId);
+  }
+
+  if (logs.length === 0) {
+    historyContent.innerHTML =
+      '<div class="history-empty">ยังไม่มีประวัติการดำเนินการ</div>';
+  } else {
+    historyContent.innerHTML = logs.map((log) => formatLogEntry(log)).join("");
+  }
+}
+
+function closeHistoryModal() {
+  historyModal.hidden = true;
+  state.viewingHistoryBillId = null;
 }
 
 menuGrid.addEventListener("click", (event) => {
@@ -977,6 +1231,36 @@ queueList.addEventListener("click", (event) => {
   renderBill();
 });
 
+queueList.addEventListener("click", (event) => {
+  const historyBtn = event.target.closest(".history-button");
+  if (historyBtn) {
+    event.stopPropagation();
+    const billId = historyBtn.dataset.billId;
+    openHistoryModal(billId);
+  }
+});
+
+closeHistoryButton.addEventListener("click", closeHistoryModal);
+historyModal.addEventListener("click", (event) => {
+  if (event.target === historyModal) closeHistoryModal();
+});
+
+// History filter buttons
+const historyFilterButtons = document.querySelectorAll(".filter-button");
+historyFilterButtons.forEach((btn) => {
+  btn.addEventListener("click", () => {
+    // Update active state
+    historyFilterButtons.forEach((b) => b.classList.remove("active"));
+    btn.classList.add("active");
+
+    // Apply filter
+    const filter = btn.dataset.filter;
+    if (state.viewingHistoryBillId) {
+      renderHistoryContent(state.viewingHistoryBillId, filter);
+    }
+  });
+});
+
 newTakeawayButton.addEventListener("click", createNewTakeawayBill);
 
 // Per-order edit: handled via billList click delegation
@@ -992,6 +1276,37 @@ confirmEditButton.addEventListener("click", () => {
     return;
   }
 
+  // Cannot confirm empty order
+  if (editingOrder.items.length === 0) {
+    showToast("ไม่สามารถยืนยันออเดอร์ว่างได้");
+    return;
+  }
+
+  // Log: Confirm Edit
+  const beforeState = editSnapshot?.before || null;
+  const afterState = {
+    status: "confirmed",
+    itemCount: editingOrder.items.reduce((sum, i) => sum + i.quantity, 0),
+    items: editingOrder.items.map((i) => ({
+      name: i.name,
+      price: i.price,
+      quantity: i.quantity,
+      note: i.note || "",
+    })),
+  };
+
+  saveLogEntry(
+    createLogEntry(
+      "confirm_edit",
+      table.id,
+      editingOrder.id,
+      beforeState,
+      afterState,
+    ),
+  );
+
+  editSnapshot = null;
+
   // Clear snapshot before finalizing
   delete editingOrder._snapshot;
 
@@ -1005,7 +1320,9 @@ confirmEditButton.addEventListener("click", () => {
 
   renderTables();
   renderBill();
-  showToast(`ยืนยันการแก้ไขออเดอร์ #${String(editingOrder.id).padStart(2, "0")} ของ ${getTableDisplayName(table)} แล้ว`);
+  showToast(
+    `ยืนยันการแก้ไขออเดอร์ #${String(editingOrder.id).padStart(2, "0")} ของ ${getTableDisplayName(table)} แล้ว`,
+  );
 });
 
 billList.addEventListener("click", (event) => {
@@ -1017,14 +1334,21 @@ billList.addEventListener("click", (event) => {
   if (resetBtn) {
     const orderIndex = Number(resetBtn.dataset.orderIndex);
     const orderToReset = table.orders[orderIndex];
-    if (!orderToReset || orderToReset.status !== "editing" || !orderToReset._snapshot) return;
+    if (
+      !orderToReset ||
+      orderToReset.status !== "editing" ||
+      !orderToReset._snapshot
+    )
+      return;
 
     // Restore items from snapshot (deep clone)
     orderToReset.items = orderToReset._snapshot.map((i) => ({ ...i }));
 
     renderTables();
     renderBill();
-    showToast(`รีเซ็ตออเดอร์ #${String(orderToReset.id).padStart(2, "0")} เป็นค่าเดิม`);
+    showToast(
+      `รีเซ็ตออเดอร์ #${String(orderToReset.id).padStart(2, "0")} เป็นค่าเดิม`,
+    );
     return;
   }
 
@@ -1040,9 +1364,27 @@ billList.addEventListener("click", (event) => {
     orderToEdit.status = "editing";
     table.status = "editing";
 
+    // Log: Enter Edit Mode
+    const beforeState = {
+      status: "confirmed",
+      itemCount: orderToEdit.items.reduce((sum, i) => sum + i.quantity, 0),
+      items: orderToEdit.items.map((i) => ({
+        name: i.name,
+        price: i.price,
+        quantity: i.quantity,
+        note: i.note || "",
+      })),
+    };
+    editSnapshot = {
+      orderId: orderToEdit.id,
+      before: beforeState,
+    };
+
     renderTables();
     renderBill();
-    showToast(`กำลังแก้ไขออเดอร์ #${String(orderToEdit.id).padStart(2, "0")} ของ ${getTableDisplayName(table)}`);
+    showToast(
+      `กำลังแก้ไขออเดอร์ #${String(orderToEdit.id).padStart(2, "0")} ของ ${getTableDisplayName(table)}`,
+    );
     return;
   }
 
@@ -1063,7 +1405,8 @@ billList.addEventListener("click", (event) => {
   const order = table.orders[orderIndex];
 
   // Prevent quantity changes on locked orders
-  if (!order || (order.status !== "pending" && order.status !== "editing")) return;
+  if (!order || (order.status !== "pending" && order.status !== "editing"))
+    return;
 
   updateQuantity(
     orderIndex,
@@ -1087,6 +1430,16 @@ addButton.addEventListener("click", () => {
 
 waterButton.addEventListener("click", () => addItem(products.at(-1), 10));
 confirmOrderButton.addEventListener("click", () => openModal("confirm"));
+
+// Legacy history button support
+historyButton.addEventListener("click", () => {
+  const table = getSelectedTable();
+  if (!table) {
+    showToast("กรุณาเลือกบิลก่อนดูประวัติ");
+    return;
+  }
+  openHistoryModal(table.id);
+});
 
 eatingButton.addEventListener("click", () => {
   const table = getSelectedTable();
@@ -1165,7 +1518,10 @@ function openNoteModal(orderIndex, itemIndex) {
 
   // Highlight matching quick options
   if (item.note) {
-    const lines = item.note.split("\n").map((l) => l.trim()).filter(Boolean);
+    const lines = item.note
+      .split("\n")
+      .map((l) => l.trim())
+      .filter(Boolean);
     quickOptions.forEach((btn) => {
       if (lines.includes(btn.dataset.note)) {
         btn.classList.add("selected");

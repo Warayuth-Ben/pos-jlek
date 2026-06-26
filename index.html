@@ -24,44 +24,12 @@
       <div class="menu-grid" id="menu-grid" aria-live="polite"></div>
     </section>
 
-    <aside class="order-panel">
-      <section class="table-section" aria-labelledby="table-title">
-        <div class="section-heading">
-          <div>
-            <p class="eyebrow">เลือกก่อนรับออเดอร์</p>
-            <h2 id="table-title">สถานะโต๊ะ</h2>
-          </div>
-          <button class="icon-button" id="legend-button" aria-label="ดูคำอธิบายสถานะ" type="button">?</button>
-        </div>
-
-        <div class="table-grid" id="table-grid"></div>
-
-        <div class="takeaway-section">
-          <div class="takeaway-header">
-            <div class="takeaway-header-left">
-              <p class="eyebrow">กลับบ้าน</p>
-              <span class="takeaway-badge" id="takeaway-count">0</span>
-            </div>
-            <button class="takeaway-new-btn" id="new-takeaway-button" type="button">＋ เปิดบิลใหม่</button>
-          </div>
-          <div class="takeaway-grid" id="takeaway-grid"></div>
-        </div>
-
-        <div class="status-legend" id="status-legend" hidden>
-<span><i class="dot available"></i>ว่าง</span>
-<span><i class="dot ordering"></i>รับออเดอร์</span>
-<span><i class="dot waiting"></i>รออาหาร</span>
-<span><i class="dot eating"></i>กำลังกิน</span>
-<span><i class="dot payment"></i>รอชำระเงิน</span>
-<span><i class="dot disabled"></i>ปิดใช้งาน</span>
-        </div>
-      </section>
-
+    <section class="center-panel">
       <section class="queue-section" aria-labelledby="queue-title">
         <div class="queue-heading">
           <div>
             <p class="eyebrow">📋 บิลที่กำลังดำเนินการ</p>
-            <h2 id="queue-title">คิว orders</h2>
+            <h2 id="queue-title">คิว bills</h2>
           </div>
         </div>
         <div class="queue-list" id="queue-list"></div>
@@ -69,10 +37,7 @@
 
       <section class="bill-section" aria-labelledby="bill-title">
         <div class="bill-heading">
-          <div>
-            <p class="eyebrow">รายการปัจจุบัน</p>
-            <h2 id="bill-title">ยังไม่ได้เลือกโต๊ะ</h2>
-          </div>
+          <h2 id="bill-title">ยังไม่ได้เลือกโต๊ะ</h2>
           <span class="item-count" id="item-count">0 รายการ</span>
         </div>
 
@@ -85,32 +50,56 @@
         <div class="bill-list" id="bill-list" hidden></div>
 
         <div class="bill-footer">
+          <button class="action history" id="history-button" type="button" hidden>📋 ประวัติ</button>
           <div class="total-row">
             <span>ยอดรวม</span>
             <strong><span id="total">0</span> <small>บาท</small></strong>
           </div>
+        </div>
+      </section>
+    </section>
 
-          <div class="action-grid">
-            <button class="action secondary" id="add-button" type="button">＋ เพิ่มรายการ</button>
-            <button class="action water" id="water-button" type="button">💧 น้ำ +1</button>
-            
-<button class="action confirm" id="confirm-order-button" type="button">
-  ✅ ยืนยันออเดอร์
-</button>
-
-<button class="action edit" id="edit-order-button" type="button" hidden>
-  ✏️ แก้ไขออเดอร์
-</button>
-
-<button class="action confirm" id="confirm-edit-button" type="button" hidden>
-  ✅ ยืนยันการแก้ไข
-</button>
-
-            <button class="action eating" id="eating-button" type="button" hidden>🍽️ กำลังกิน</button>
-            <button class="action payment" id="payment-button" type="button" hidden>💳 รอชำระเงิน</button>
-            <button class="action pay" id="pay-button" type="button">คิดเงิน</button>
-            <button class="action cancel" id="cancel-button" type="button">ยกเลิกบิล</button>
+    <aside class="right-panel">
+      <section class="table-section-compact" aria-labelledby="table-title">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">โต๊ะ</p>
           </div>
+          <button class="icon-button" id="legend-button" aria-label="ดูคำอธิบายสถานะ" type="button">?</button>
+        </div>
+        <div class="table-grid" id="table-grid"></div>
+        <div class="takeaway-section">
+          <div class="takeaway-header">
+            <div class="takeaway-header-left">
+              <p class="eyebrow">กลับบ้าน</p>
+              <span class="takeaway-badge" id="takeaway-count">0</span>
+            </div>
+            <button class="takeaway-new-btn" id="new-takeaway-button" type="button">＋ ใหม่</button>
+          </div>
+          <div class="takeaway-grid" id="takeaway-grid"></div>
+        </div>
+      </section>
+
+      <section class="actions-section">
+        <div class="actions-group">
+          <button class="action primary" id="add-button" type="button">＋ เพิ่มรายการ</button>
+          <button class="action water" id="water-button" type="button">💧 น้ำ +1</button>
+        </div>
+        <div class="actions-group">
+          <button class="action confirm" id="confirm-order-button" type="button">
+            ✅ ยืนยันออเดอร์
+          </button>
+          <button class="action edit" id="confirm-edit-button" type="button" hidden>
+            ✅ ยืนยันการแก้ไข
+          </button>
+        </div>
+        <div class="actions-group">
+          <button class="action eating" id="eating-button" type="button" hidden>🍽️ กำลังกิน</button>
+          <button class="action payment" id="payment-button" type="button" hidden>💳 รอชำระเงิน</button>
+        </div>
+        <div class="actions-group">
+          <button class="action pay" id="pay-button" type="button">💰 คิดเงิน</button>
+          <button class="action cancel" id="cancel-button" type="button">❌ ยกเลิก</button>
         </div>
       </section>
     </aside>
@@ -149,6 +138,23 @@
     </div>
   </div>
 
+  <div class="modal-backdrop" id="history-modal" hidden>
+    <div class="modal history-modal" role="dialog" aria-modal="true" aria-labelledby="history-modal-title">
+      <div class="history-header">
+        <h2 id="history-modal-title">📋 ประวัติการดำเนินการ</h2>
+        <button class="icon-button close-history" id="close-history" type="button">✕</button>
+      </div>
+      <div class="history-filter" id="history-filter">
+        <button class="filter-button active" data-filter="all" type="button">ทั้งหมด</button>
+        <button class="filter-button" data-filter="1" type="button">ออเดอร์ #01</button>
+        <button class="filter-button" data-filter="2" type="button">ออเดอร์ #02</button>
+        <button class="filter-button" data-filter="3" type="button">ออเดอร์ #03</button>
+      </div>
+      <div class="history-content" id="history-content"></div>
+    </div>
+  </div>
+
+  <script src="changelog.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
